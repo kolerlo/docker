@@ -8,37 +8,41 @@ const port = 5000;
 app.use(cors());
 app.use(express.json());
 
-let messages = [];
+// Store only the last message
+let lastMessage = "";
 
 const API_KEY = process.env.WEATHER_API_KEY;
 const BASE_URL = 'http://api.weatherapi.com/v1/current.json';
 
-// Get all messages
+// Get the last message
 app.get('/api/messages', async (req, res) => {
   try {
-    res.json({ messages });
+    res.json({ messages: lastMessage ? [lastMessage] : [] });
   } catch (error) {
-    console.error('Error fetching messages:', error);
+    console.error('Error fetching message:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 // Added GET handler for /api/message endpoint
 app.get('/api/message', (req, res) => {
-  res.json({ message: "This endpoint only accepts POST requests with a message in the body" });
+  res.json({ message: "This endpoint only accepts POST requests with message data" });
 });
 
-// Save a new message
+// Save a new message (replacing any previous one)
 app.post('/api/message', async (req, res) => {
   try {
     console.log('Request body:', req.body); // Log the request body
-    const { message } = req.body;
-    if (message) {
-      messages.push(message);
-      res.json({ success: true, message: 'Message saved successfully' });
+    const { city, weatherData } = req.body;
+    if (city && weatherData) {
+      // Format the weather information
+      const formattedMessage = `City: ${city} | Temp: ${weatherData.current.temp_c}°C | Condition: ${weatherData.current.condition.text}`;
+      // Replace the old message instead of pushing to an array
+      lastMessage = formattedMessage;
+      res.json({ success: true, message: 'Weather data saved' });
     } else {
-      console.log('Missing message in request body');
-      res.status(400).json({ success: false, message: 'Message is required' });
+      console.log('Missing city or weatherData in request body');
+      res.status(400).json({ success: false, message: 'City and weatherData are required' });
     }
   } catch (error) {
     console.error('Error in /api/message endpoint:', error);
@@ -51,7 +55,6 @@ app.get('/api/weather', async (req, res) => {
   try {
     const { city } = req.query;
     if (!city) return res.status(400).json({ error: 'City is required' });
-    
     const response = await axios.get(`${BASE_URL}?key=${API_KEY}&q=${city}`);
     res.json(response.data);
   } catch (error) {
