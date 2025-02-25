@@ -1,0 +1,14 @@
+FROM node:hydrogen-alpine
+WORKDIR /app
+COPY package.json .
+RUN npm install
+COPY . .
+
+# Set the backend URL
+ARG REACT_APP_BACKEND_URL=http://backend:5000
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+
+RUN npm run build
+RUN npm install -g serve
+EXPOSE 3000
+CMD ["serve", "-s", "build", "-l", "3000"]
