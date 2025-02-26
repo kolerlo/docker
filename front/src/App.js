@@ -70,7 +70,6 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Weather App</h1>
         
         {/* Status message display */}
         {submitStatus.message && (
@@ -102,7 +101,7 @@ function App() {
         <div className="history-container">
           <h3>Search History:</h3>
           {savedMessages.length > 0 ? (
-            savedMessages.map((msg, index) => (
+            savedMessages.reverse().map((msg, index) => (
               <p key={index} className="history-item">{msg}</p>
             ))
           ) : (

@@ -8,38 +8,43 @@ const port = 5000;
 app.use(cors());
 app.use(express.json());
 
-// Store only the last message
-let lastMessage = "";
-
+let messages = [];
 const API_KEY = process.env.WEATHER_API_KEY;
 const BASE_URL = 'http://api.weatherapi.com/v1/current.json';
 
-// Get the last message
+// Get all messages
 app.get('/api/messages', async (req, res) => {
   try {
-    res.json({ messages: lastMessage ? [lastMessage] : [] });
+    // Return the full formatted messages for the history display
+    res.json({ messages: messages.map(msg => msg.fullData) });
   } catch (error) {
-    console.error('Error fetching message:', error);
+    console.error('Error fetching messages:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// Added GET handler for /api/message endpoint
+// Get the last city name
 app.get('/api/message', (req, res) => {
-  res.json({ message: "This endpoint only accepts POST requests with message data" });
+  if (messages.length > 0) {
+    // Return just the city name
+    res.json({ message: messages[messages.length - 1].cityName });
+  } else {
+    res.json({ message: "No messages saved yet" });
+  }
 });
 
-// Save a new message (replacing any previous one)
+// Save a new message
 app.post('/api/message', async (req, res) => {
   try {
     console.log('Request body:', req.body); // Log the request body
     const { city, weatherData } = req.body;
     if (city && weatherData) {
-      // Format the weather information
-      const formattedMessage = `City: ${city} | Temp: ${weatherData.current.temp_c}°C | Condition: ${weatherData.current.condition.text}`;
-      // Replace the old message instead of pushing to an array
-      lastMessage = formattedMessage;
-      res.json({ success: true, message: 'Weather data saved' });
+      // Store just the original city name and the full formatted data
+      messages.push({
+        cityName: city,
+        fullData: `City: ${city} | Temp: ${weatherData.current.temp_c}°C | Condition: ${weatherData.current.condition.text}`
+      });
+      res.json({ success: true, message: 'Weather data saved to history' });
     } else {
       console.log('Missing city or weatherData in request body');
       res.status(400).json({ success: false, message: 'City and weatherData are required' });
@@ -55,6 +60,7 @@ app.get('/api/weather', async (req, res) => {
   try {
     const { city } = req.query;
     if (!city) return res.status(400).json({ error: 'City is required' });
+    
     const response = await axios.get(`${BASE_URL}?key=${API_KEY}&q=${city}`);
     res.json(response.data);
   } catch (error) {
