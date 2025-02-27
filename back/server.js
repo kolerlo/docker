@@ -2,11 +2,83 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+
+// OpenTelemetry instrumentation
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-grpc');
+const { Resource } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-express');
+const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
+
+// OpenTelemetry setup
+const sdk = new NodeSDK({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'weather-backend',
+  }),
+  traceExporter: new OTLPTraceExporter({
+    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://tempo:4317',
+  }),
+  instrumentations: [
+    new HttpInstrumentation(),
+    new ExpressInstrumentation(),
+  ],
+});
+
+// Start OpenTelemetry
+sdk.start();
+
+// Prometheus metrics
+const promClient = require('prom-client');
+const collectDefaultMetrics = promClient.collectDefaultMetrics;
+const Registry = promClient.Registry;
+const register = new Registry();
+collectDefaultMetrics({ register });
+
+// Custom metrics
+const httpRequestDurationMicroseconds = new promClient.Histogram({
+  name: 'http_request_duration_ms',
+  help: 'Duration of HTTP requests in ms',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [1, 5, 15, 50, 100, 200, 500, 1000, 2000, 5000],
+  registers: [register],
+});
+
+const weatherRequestCounter = new promClient.Counter({
+  name: 'weather_request_total',
+  help: 'Counter for weather API requests',
+  labelNames: ['city'],
+  registers: [register],
+});
+
+// Create Express app
 const app = express();
 const port = 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// Request timing middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    httpRequestDurationMicroseconds.labels(
+      req.method,
+      req.route?.path || req.path,
+      res.statusCode
+    ).observe(duration);
+  });
+  
+  next();
+});
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 
 let messages = [];
 const API_KEY = process.env.WEATHER_API_KEY;
@@ -15,7 +87,6 @@ const BASE_URL = 'http://api.weatherapi.com/v1/current.json';
 // Get all messages
 app.get('/api/messages', async (req, res) => {
   try {
-    // Return the full formatted messages for the history display
     res.json({ messages: messages.map(msg => msg.fullData) });
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -26,7 +97,6 @@ app.get('/api/messages', async (req, res) => {
 // Get the last city name
 app.get('/api/message', (req, res) => {
   if (messages.length > 0) {
-    // Return just the city name
     res.json({ message: messages[messages.length - 1].cityName });
   } else {
     res.json({ message: "No messages saved yet" });
@@ -36,10 +106,9 @@ app.get('/api/message', (req, res) => {
 // Save a new message
 app.post('/api/message', async (req, res) => {
   try {
-    console.log('Request body:', req.body); // Log the request body
+    console.log('Request body:', req.body);
     const { city, weatherData } = req.body;
     if (city && weatherData) {
-      // Store just the original city name and the full formatted data
       messages.push({
         cityName: city,
         fullData: `City: ${city} | Temp: ${weatherData.current.temp_c}°C | Condition: ${weatherData.current.condition.text}`
@@ -61,6 +130,9 @@ app.get('/api/weather', async (req, res) => {
     const { city } = req.query;
     if (!city) return res.status(400).json({ error: 'City is required' });
     
+    // Increment weather request counter with city label
+    weatherRequestCounter.labels(city).inc();
+    
     const response = await axios.get(`${BASE_URL}?key=${API_KEY}&q=${city}`);
     res.json(response.data);
   } catch (error) {
@@ -71,4 +143,12 @@ app.get('/api/weather', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`Backend running on http://localhost:${port}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  sdk.shutdown()
+    .then(() => console.log('OpenTelemetry SDK shut down successfully'))
+    .catch(error => console.log('Error shutting down OpenTelemetry SDK', error))
+    .finally(() => process.exit(0));
 });
