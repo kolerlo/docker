@@ -41,12 +41,12 @@ function App() {
       const weatherData = await response.json();
       setWeather(weatherData);
       
-      // Save the city and weather data to history
+      // Save the city and weather data to history - use API city name
       await fetch('http://localhost:5000/api/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          city: city,
+          city: weatherData.location.name, // Use the properly formatted city name from API
           weatherData: weatherData
         }),
       });
@@ -68,7 +68,7 @@ function App() {
   };
 
   // Handle Enter key press
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       fetchWeather();
     }
@@ -91,6 +91,7 @@ function App() {
             type="text"
             value={city}
             onChange={(e) => setCity(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Enter city name"
             className="text-input"
           />
