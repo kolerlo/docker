@@ -1,3 +1,4 @@
+# Basic Mimir configuration
 multitenancy_enabled: false
 
 server:
@@ -9,39 +10,38 @@ distributor:
       store: inmemory
 
 ingester:
-  lifecycler:
-    ring:
-      kvstore:
-        store: inmemory
-      replication_factor: 1
-    final_sleep: 0s
-  chunk_idle_period: 5m
-  chunk_retain_period: 30s
+  ring:
+    kvstore:
+      store: inmemory
+    replication_factor: 1
 
-schema_config:
-  configs:
-    - from: 2020-10-24
-      store: boltdb-shipper
-      object_store: filesystem
-      schema: v11
-      index:
-        prefix: index_
-        period: 24h
-
-storage_config:
-  boltdb_shipper:
-    active_index_directory: /tmp/mimir/boltdb-shipper-active
-    cache_location: /tmp/mimir/boltdb-shipper-cache
-    cache_ttl: 24h
-    shared_store: filesystem
+blocks_storage:
+  backend: filesystem
   filesystem:
-    directory: /tmp/mimir/chunks
+    dir: /tmp/mimir/blocks
+  tsdb:
+    dir: /tmp/mimir/tsdb
 
 compactor:
   data_dir: /tmp/mimir/compactor
-  shared_store: filesystem
   compaction_interval: 5m
 
-limits_config:
-  reject_old_samples: true
-  reject_old_samples_max_age: 168h
+frontend:
+  align_queries_with_step: true
+
+query_scheduler:
+  max_outstanding_requests_per_tenant: 100
+
+ruler_storage:
+  backend: filesystem
+  filesystem:
+    dir: /tmp/mimir/rules
+
+alertmanager_storage:
+  backend: filesystem
+  filesystem:
+    dir: /tmp/mimir/alertmanager
+
+limits:
+  ingestion_rate: 0
+  ingestion_burst_size: 0
