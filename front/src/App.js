@@ -67,6 +67,13 @@ function App() {
     }
   };
 
+  // Handle Enter key press
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      fetchWeather();
+    }
+  };
+
   return (
     <div className="App">
       <header className="App-header">
@@ -101,7 +108,7 @@ function App() {
         <div className="history-container">
           <h3>Search History:</h3>
           {savedMessages.length > 0 ? (
-            savedMessages.reverse().map((msg, index) => (
+            [...savedMessages].reverse().map((msg, index) => (
               <p key={index} className="history-item">{msg}</p>
             ))
           ) : (
