@@ -3,9 +3,11 @@ import './App.css';
 
 function App() {
   const [savedMessages, setSavedMessages] = useState([]);
+  const [recentSearches, setRecentSearches] = useState([]);
   const [city, setCity] = useState('');
   const [weather, setWeather] = useState(null);
   const [submitStatus, setSubmitStatus] = useState({ message: '', isError: false });
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -13,6 +15,18 @@ function App() {
         const response = await fetch('http://localhost:5000/api/messages');
         const data = await response.json();
         setSavedMessages(data.messages);
+        
+        // Extract unique city names from the history for the dropdown
+        if (data.messages && data.messages.length > 0) {
+          const cityNames = data.messages.map(msg => {
+            const cityMatch = msg.match(/City: ([^|]+)/);
+            return cityMatch ? cityMatch[1].trim() : null;
+          }).filter(Boolean);
+          
+          // Get unique city names (last 4)
+          const uniqueCities = [...new Set(cityNames)].slice(0, 4);
+          setRecentSearches(uniqueCities);
+        }
       } catch (error) {
         console.error('Error fetching messages:', error);
         setSubmitStatus({
@@ -58,6 +72,19 @@ function App() {
       const msgResponse = await fetch('http://localhost:5000/api/messages');
       const msgData = await msgResponse.json();
       setSavedMessages(msgData.messages);
+      
+      // Update recent searches
+      const cityNames = msgData.messages.map(msg => {
+        const cityMatch = msg.match(/City: ([^|]+)/);
+        return cityMatch ? cityMatch[1].trim() : null;
+      }).filter(Boolean);
+      
+      // Get unique city names (last 4)
+      const uniqueCities = [...new Set(cityNames)].slice(0, 4);
+      setRecentSearches(uniqueCities);
+      
+      // Hide dropdown after search
+      setShowDropdown(false);
     } catch (error) {
       console.error('Weather fetch error:', error);
       setSubmitStatus({ 
@@ -74,6 +101,16 @@ function App() {
     }
   };
 
+  // Select city from dropdown
+  const selectCity = (selectedCity) => {
+    setCity(selectedCity);
+    setShowDropdown(false);
+    // Auto-search when selecting from dropdown
+    setTimeout(() => {
+      fetchWeather();
+    }, 100);
+  };
+
   return (
     <div className="App">
       <header className="App-header">
@@ -87,15 +124,37 @@ function App() {
         
         <div className="weather-container">
           <h2>Weather Checker</h2>
-          <input
-            type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter city name"
-            className="text-input"
-          />
-          <button onClick={fetchWeather}>Get Weather</button>
+          <div className="search-wrapper">
+            <div className="search-container">
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                placeholder="Enter city name"
+                className="text-input"
+              />
+              
+              {/* Recent searches dropdown */}
+              {showDropdown && recentSearches.length > 0 && (
+                <div className="recent-searches">
+                  {recentSearches.map((recentCity, index) => (
+                    <div 
+                      key={index} 
+                      className="recent-city"
+                      onClick={() => selectCity(recentCity)}
+                    >
+                      {recentCity}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={fetchWeather}>Get Weather</button>
+          </div>
+          
           {weather && (
             <div className="weather-results">
               <h3>{weather.location.name}, {weather.location.country}</h3>
