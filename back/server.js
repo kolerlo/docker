@@ -110,7 +110,7 @@ app.post('/api/message', async (req, res) => {
     const { city, weatherData } = req.body;
     if (city && weatherData) {
       messages.push({
-        cityName: city, // This will now be the properly formatted city name from the API
+        cityName: city,
         fullData: `City: ${city} | Temp: ${weatherData.current.temp_c}°C | Condition: ${weatherData.current.condition.text}`
       });
       res.json({ success: true, message: 'Weather data saved to history' });
