@@ -1,0 +1,56 @@
+groups:
+  - name: example
+    rules:
+    - alert: HighCPUUsage
+      expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage (instance {{ $labels.instance }})"
+        description: "CPU usage is above 80% for more than 5 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+    - alert: HighMemoryUsage
+      expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory usage (instance {{ $labels.instance }})"
+        description: "Memory usage is above 80% for more than 5 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+    - alert: HighDiskUsage
+      expr: 100 - ((node_filesystem_avail_bytes{fstype!="tmpfs",mountpoint="/"} * 100) / node_filesystem_size_bytes{fstype!="tmpfs",mountpoint="/"}) > 85
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High disk usage (instance {{ $labels.instance }})"
+        description: "Disk usage is above 85% for more than 5 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+    - alert: InstanceDown
+      expr: up == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Instance {{ $labels.instance }} down"
+        description: "{{ $labels.instance }} has been down for more than 2 minutes."
+
+    - alert: HighRequestLatency
+      expr: sum(rate(http_request_duration_ms_sum[5m])) by (route) / sum(rate(http_request_duration_ms_count[5m])) by (route) > 500
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High request latency for route {{ $labels.route }}"
+        description: "Route {{ $labels.route }} has a latency of {{ $value }}ms, which is above the 500ms threshold for more than 2 minutes."
+
+    - alert: HighErrorRate
+      expr: sum(rate(http_request_duration_ms_count{status_code=~"5.."}[5m])) / sum(rate(http_request_duration_ms_count[5m])) * 100 > 5
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High error rate"
+        description: "Error rate is {{ $value }}%, which is above the 5% threshold for more than 2 minutes."
