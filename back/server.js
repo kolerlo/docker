@@ -44,10 +44,11 @@ const httpRequestDurationMicroseconds = new promClient.Histogram({
   registers: [register],
 });
 
+// Updated counter with both 'city' (user input) and 'api_city' (API response) labels
 const weatherRequestCounter = new promClient.Counter({
   name: 'weather_request_total',
   help: 'Counter for weather API requests',
-  labelNames: ['city'],
+  labelNames: ['city', 'api_city'],
   registers: [register],
 });
 
@@ -124,17 +125,27 @@ app.post('/api/message', async (req, res) => {
   }
 });
 
-// Fetch weather data
+// Helper function to fetch weather data from provider
+async function fetchWeatherFromProvider(city) {
+  const response = await axios.get(`${BASE_URL}?key=${API_KEY}&q=${city}`);
+  return response.data;
+}
+
+// Updated weather endpoint with the new metrics logic
 app.get('/api/weather', async (req, res) => {
   try {
-    const { city } = req.query;
-    if (!city) return res.status(400).json({ error: 'City is required' });
+    const userInputCity = req.query.city;
+    if (!userInputCity) return res.status(400).json({ error: 'City is required' });
     
-    // Increment weather request counter with city label
-    weatherRequestCounter.labels(city).inc();
+    const weatherData = await fetchWeatherFromProvider(userInputCity);
     
-    const response = await axios.get(`${BASE_URL}?key=${API_KEY}&q=${city}`);
-    res.json(response.data);
+    // Extract the API's city name from the response
+    const apiCityName = weatherData.location.name;
+    
+    // Increment both counters - one with user input city and one with API city name
+    weatherRequestCounter.labels(userInputCity, apiCityName).inc();
+    
+    res.json(weatherData);
   } catch (error) {
     console.error('Error fetching weather:', error.response?.data || error.message);
     res.status(500).json({ error: 'Error fetching weather data' });

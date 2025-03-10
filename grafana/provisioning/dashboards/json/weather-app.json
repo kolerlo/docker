@@ -407,6 +407,61 @@
     },
     {
       "datasource": "Prometheus",
+      "description": "Top cities by API response",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 14
+      },
+      "id": 22,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      },
+      "pluginVersion": "7.1.1",
+      "targets": [
+        {
+          "expr": "topk(5, sum(weather_request_total) by (api_city))",
+          "interval": "",
+          "legendFormat": "{{api_city}}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Most Searched Cities (API Responses)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "Prometheus",
       "description": "Node.js resource usage metrics",
       "fieldConfig": {
         "defaults": {
@@ -510,6 +565,27 @@
         "tagsQuery": "",
         "type": "query",
         "useTags": false
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "Prometheus",
+        "definition": "label_values(weather_request_total, api_city)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "API City",
+        "multi": false,
+        "name": "api_city",
+        "options": [],
+        "query": "label_values(weather_request_total, api_city)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
       }
     ]
   },
