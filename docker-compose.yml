@@ -1,6 +1,6 @@
 services:
   backend:
-    build: ./back
+    image: alxo0/fullstack-backend:latest
     ports:
       - "5000:5000"
     networks:
@@ -14,10 +14,7 @@ services:
       - OTEL_SERVICE_NAME=weather-backend
 
   frontend:
-    build:
-      context: ./front
-      args:
-        - REACT_APP_BACKEND_URL=http://backend:5000
+    image: alxo0/fullstack-frontend:latest
     ports:
       - "3000:3000"
     depends_on:

@@ -3,31 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 
-// OpenTelemetry instrumentation
-const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-grpc');
-const { Resource } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
-const { ExpressInstrumentation } = require('@opentelemetry/instrumentation-express');
-const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
-
-// OpenTelemetry setup
-const sdk = new NodeSDK({
-  resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'weather-backend',
-  }),
-  traceExporter: new OTLPTraceExporter({
-    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://tempo:4317',
-  }),
-  instrumentations: [
-    new HttpInstrumentation(),
-    new ExpressInstrumentation(),
-  ],
-});
-
-// Start OpenTelemetry
-sdk.start();
-
 // Prometheus metrics
 const promClient = require('prom-client');
 const collectDefaultMetrics = promClient.collectDefaultMetrics;
@@ -154,12 +129,4 @@ app.get('/api/weather', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`Backend running on http://localhost:${port}`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  sdk.shutdown()
-    .then(() => console.log('OpenTelemetry SDK shut down successfully'))
-    .catch(error => console.log('Error shutting down OpenTelemetry SDK', error))
-    .finally(() => process.exit(0));
 });
