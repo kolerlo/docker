@@ -1,6 +1,7 @@
 services:
   backend:
     image: alxo0/fullstack-backend:latest
+    container_name: backend
     ports:
       - "5000:5000"
     networks:
@@ -15,6 +16,7 @@ services:
 
   frontend:
     image: alxo0/fullstack-frontend:latest
+    container_name: frontend
     ports:
       - "3000:3000"
     depends_on:
@@ -29,6 +31,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.48.0
+    container_name: prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
@@ -41,6 +44,7 @@ services:
 
   grafana:
     image: grafana/grafana:10.2.3
+    container_name: grafana
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana-data:/var/lib/grafana
@@ -50,11 +54,12 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     ports:
-      - "3001:3000"  # Changed port to standard Grafana port
+      - "3001:3000" 
     networks:
       - fullstack-network
     depends_on:
       - prometheus
+  
   node-exporter:
     image: prom/node-exporter:v1.6.1
     container_name: node-exporter
@@ -72,6 +77,23 @@ services:
       - "9100:9100"
     networks:
       - fullstack-network
+
+  fail2ban:
+    image: linuxserver/fail2ban:latest
+    container_name: fail2ban
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /path/to/fail2ban/config:/config
+      - /var/log:/var/log:ro
+    restart: unless-stopped
+
 networks:
   fullstack-network:
     driver: bridge
