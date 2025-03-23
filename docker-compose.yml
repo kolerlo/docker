@@ -89,6 +89,7 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
+      - SKIP_CHOWN=true
     volumes:
       - /path/to/fail2ban/config:/config
       - /var/log:/var/log:ro
