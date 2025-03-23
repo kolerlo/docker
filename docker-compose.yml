@@ -13,6 +13,15 @@ services:
         max-file: "3"
     environment:
       - OTEL_SERVICE_NAME=weather-backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     image: alxo0/fullstack-frontend:latest
@@ -28,37 +37,56 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: prometheus
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"  # Only accessible locally
     networks:
       - fullstack-network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "nobody:nobody"
 
   grafana:
     image: grafana/grafana:10.2.3
     container_name: grafana
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
     environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     ports:
       - "3001:3000" 
     networks:
       - fullstack-network
     depends_on:
       - prometheus
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "472"  # Default Grafana user
   
   node-exporter:
     image: prom/node-exporter:v1.6.1
@@ -74,30 +102,23 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     restart: unless-stopped
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"  # Only accessible locally
     networks:
       - fullstack-network
-
-  fail2ban:
-    image: linuxserver/fail2ban:latest
-    container_name: fail2ban
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    network_mode: host
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-      - SKIP_CHOWN=true
-    volumes:
-      - /path/to/fail2ban/config:/config
-      - /var/log:/var/log:ro
-    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "nobody:nobody"
 
 networks:
   fullstack-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: docker_secure
+      com.docker.network.bridge.enable_icc: "false"
 
 volumes:
   grafana-data:
+  prometheus-data:
